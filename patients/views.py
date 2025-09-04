@@ -38,15 +38,29 @@ class PatientDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False) 
+        partial = True
         instance = self.get_object()
+        original_values = {field: getattr(instance, field, None) for field in [
+            'name', 'age', 'gender', 'address', 'mobile_no'
+        ]}
+
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
+        changed_fields = []
+        for field, new_value in serializer.validated_data.items():
+            if field in original_values and original_values[field] != new_value:
+                changed_fields.append(field)
+
         self.perform_update(serializer)
+
+        if not changed_fields:
+            message = "No changes detected"
+        elif len(changed_fields) == 1:
+            message = f"{changed_fields[0]} updated successfully"
+        else:
+            message = f"Fields updated successfully: {', '.join(changed_fields)}"
+
         return Response(
-            {
-                "message": f"Patient '{serializer.data.get('name')}' updated successfully",
-                "data": serializer.data,
-            },
+            {"message": message, "data": serializer.data},
             status=status.HTTP_200_OK
         )
